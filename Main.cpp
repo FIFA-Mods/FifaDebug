@@ -177,8 +177,8 @@ void __stdcall MyOutputDebugStringA(LPCSTR lpOutputString) {
 class FifaDebug {
 public:
     FifaDebug() {
-        //if (!CheckPluginName(Magic<'F','i','f','a','D','e','b','u','g','.','a','s','i'>()))
-        //    return;
+        if (!CheckPluginName(Magic<'F','i','f','a','D','e','b','u','g','.','a','s','i'>()))
+            return;
         auto v = FIFA::GetAppVersion();
         switch (v.id()) {
         case ID_FIFA13_1700_RLD:
