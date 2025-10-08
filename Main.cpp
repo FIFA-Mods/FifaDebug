@@ -20,6 +20,48 @@ uintptr_t OriginalWndProc = 0;
 std::list<std::string> DebugMessages;
 std::list<std::wstring> DebugMessagesW;
 
+enum MessageFlags {
+    MSG_PRINTF = 1,
+    MSG_OUTPUT_DEBUG_STRING = 2,
+    MSG_DLC = 4,
+    MSG_UGC = 8,
+    MSG_FCE_GAME_MODES = 16,
+    MSG_USER = 32,
+    MSG_ALL = 0xFFFFFFFF
+};
+
+unsigned int GetIniFlags() {
+    wchar_t buf[1024];
+    GetPrivateProfileStringW(L"Debug", L"Messages", L"", buf, 1024,
+        FIFA::GameDirPath(L"plugins\\FifaDebug.ini").c_str());
+    auto messages = ToLower(buf);
+    Trim(messages);
+    if (messages.empty() || messages == L"all")
+        return MSG_ALL;
+    auto parts = Split(ToLower(buf), L',', true, true, false);
+    unsigned int flags = 0;
+    for (auto const &p : parts) {
+        if (p == L"printf")
+            flags |= MSG_PRINTF;
+        else if (p == L"outputdebugstring")
+            flags |= MSG_OUTPUT_DEBUG_STRING;
+        else if (p == L"dlc")
+            flags |= MSG_DLC;
+        else if (p == L"ugc")
+            flags |= MSG_UGC;
+        else if (p == L"fcegamemodes")
+            flags |= MSG_FCE_GAME_MODES;
+        else if (p == L"user")
+            flags |= MSG_USER;
+    }
+    return flags;
+}
+
+unsigned int &Flags() {
+    static unsigned int flags = GetIniFlags();
+    return flags;
+}
+
 void CopyListToClipboard(const std::list<std::string> &strList) {
     if (strList.empty()) return;
     size_t totalSize = 0;
@@ -122,7 +164,7 @@ bool METHOD OnDirect3DRender(void *t, DUMMY_ARG, bool arg) {
     return CallMethodAndReturnDynGlobal<bool>(Original3DRender, t, arg);
 }
 
-extern "C" __declspec(dllexport) void DebugPrint(std::string const &message) {
+void MyDebugPrint(std::string const &message) {
     while (DebugMessages.size() >= 1000)
         DebugMessages.pop_front();
     DebugMessages.push_back(message);
@@ -134,7 +176,7 @@ void MyPrintf(char const *format, ...) {
     static char buf[2048];
     buf[0] = '\0';
     vsprintf(buf, format, myargs);
-    DebugPrint(buf);
+    MyDebugPrint(buf);
     va_end(myargs);
 }
 
@@ -146,7 +188,7 @@ void MyPrintfDLC(char const *format, ...) {
     static char buf[2048];
     buf[0] = '\0';
     vsprintf(buf, format, myargs);
-    DebugPrint(buf);
+    MyDebugPrint(buf);
     va_end(myargs);
 }
 
@@ -156,7 +198,7 @@ void MyPrintfUGC(char const *format, ...) {
     static char buf[2048];
     buf[0] = '\0';
     vsprintf(buf, format, myargs);
-    DebugPrint(buf);
+    MyDebugPrint(buf);
     va_end(myargs);
 }
 
@@ -166,12 +208,17 @@ void MyPrintfDUI(int, char const *format, ...) {
     static char buf[2048];
     buf[0] = '\0';
     vsprintf(buf, format, myargs);
-    DebugPrint(buf);
+    MyDebugPrint(buf);
     va_end(myargs);
 }
 
 void __stdcall MyOutputDebugStringA(LPCSTR lpOutputString) {
-    DebugPrint(lpOutputString);
+    MyDebugPrint(lpOutputString);
+}
+
+extern "C" __declspec(dllexport) void DebugPrint(std::string const &message) {
+    if (Flags() & MSG_USER)
+        MyDebugPrint(message);
 }
 
 class FifaDebug {
@@ -192,11 +239,16 @@ public:
             OriginalWndProc = patch::GetUInt(0x12A5176 + 3);
             patch::SetPointer(0x12A5176 + 3, WndProc);
             gSportsRNAAddr = 0x3DD53F0;
-            patch::SetPointer(0x2F36588, MyPrintf);
-            patch::RedirectJump(0x531870, MyPrintfDLC);
-            patch::RedirectJump(0xFABB70, MyPrintfUGC);
-            patch::SetPointer(0x2F36270, MyOutputDebugStringA);
-            patch::RedirectJump(0x749090, MyPrintfDUI);
+            if (Flags() & MSG_PRINTF)
+                patch::SetPointer(0x2F36588, MyPrintf);
+            if (Flags() & MSG_DLC)
+                patch::RedirectJump(0x531870, MyPrintfDLC);
+            if (Flags() & MSG_UGC)
+                patch::RedirectJump(0xFABB70, MyPrintfUGC);
+            if (Flags() & MSG_OUTPUT_DEBUG_STRING)
+                patch::SetPointer(0x2F36270, MyOutputDebugStringA);
+            if (Flags() & MSG_FCE_GAME_MODES)
+                patch::RedirectJump(0x749090, MyPrintfDUI);
             break;
         case ID_FIFA13_1800:
             OrigDirect3DCreate = patch::RedirectCall(0x128E051, OnDirect3DCreate);
@@ -209,11 +261,16 @@ public:
             OriginalWndProc = patch::GetUInt(0x12A21F6 + 3);
             patch::SetPointer(0x12A21F6 + 3, WndProc);
             gSportsRNAAddr = 0x27A1D60;
-            patch::SetPointer(0x232E58C, MyPrintf);
-            patch::RedirectJump(0x52C920, MyPrintfDLC);
-            patch::RedirectJump(0xFA7130, MyPrintfUGC);
-            patch::SetPointer(0x232E270, MyOutputDebugStringA);
-            patch::RedirectJump(0x744110, MyPrintfDUI);
+            if (Flags() & MSG_PRINTF)
+                patch::SetPointer(0x232E58C, MyPrintf);
+            if (Flags() & MSG_DLC)
+                patch::RedirectJump(0x52C920, MyPrintfDLC);
+            if (Flags() & MSG_UGC)
+                patch::RedirectJump(0xFA7130, MyPrintfUGC);
+            if (Flags() & MSG_OUTPUT_DEBUG_STRING)
+                patch::SetPointer(0x232E270, MyOutputDebugStringA);
+            if (Flags() & MSG_FCE_GAME_MODES)
+                patch::RedirectJump(0x744110, MyPrintfDUI);
             break;
         case ID_FIFA12_1700:
             OrigDirect3DCreate = patch::RedirectCall(0xE55E72, OnDirect3DCreate);
@@ -223,11 +280,16 @@ public:
             OriginalWndProc = patch::GetUInt(0xB9E923 + 4);
             patch::SetPointer(0xB9E923 + 4, WndProc);
             gSportsRNAAddr = 0x1A4AE00;
-            patch::SetPointer(0x1650400, MyPrintf);
-            patch::RedirectJump(0xB403B0, MyPrintfDLC);
-            patch::RedirectJump(0xD359E0, MyPrintfUGC);
-            patch::SetPointer(0x16501C4, MyOutputDebugStringA);
-            patch::RedirectJump(0xCCEC20, MyPrintfDUI);
+            if (Flags() & MSG_PRINTF)
+                patch::SetPointer(0x1650400, MyPrintf);
+            if (Flags() & MSG_DLC)
+                patch::RedirectJump(0xB403B0, MyPrintfDLC);
+            if (Flags() & MSG_UGC)
+                patch::RedirectJump(0xD359E0, MyPrintfUGC);
+            if (Flags() & MSG_OUTPUT_DEBUG_STRING)
+                patch::SetPointer(0x16501C4, MyOutputDebugStringA);
+            if (Flags() & MSG_FCE_GAME_MODES)
+                patch::RedirectJump(0xCCEC20, MyPrintfDUI);
             break;
         case ID_FIFA12_1500_SKD:
             OrigDirect3DCreate = patch::RedirectCall(0xE52872, OnDirect3DCreate);
@@ -237,11 +299,16 @@ public:
             OriginalWndProc = patch::GetUInt(0xB9CB13 + 4);
             patch::SetPointer(0xB9CB13 + 4, WndProc);
             gSportsRNAAddr = 0x1A4ADC0;
-            patch::SetPointer(0x1B7B3FC, MyPrintf);
-            patch::RedirectJump(0xB3FD90, MyPrintfDLC);
-            patch::RedirectJump(0xD33CB0, MyPrintfUGC);
-            patch::SetPointer(0x1B7B1AC, MyOutputDebugStringA);
-            patch::RedirectJump(0xCCDA50, MyPrintfDUI);
+            if (Flags() & MSG_PRINTF)
+                patch::SetPointer(0x1B7B3FC, MyPrintf);
+            if (Flags() & MSG_DLC)
+                patch::RedirectJump(0xB3FD90, MyPrintfDLC);
+            if (Flags() & MSG_UGC)
+                patch::RedirectJump(0xD33CB0, MyPrintfUGC);
+            if (Flags() & MSG_OUTPUT_DEBUG_STRING)
+                patch::SetPointer(0x1B7B1AC, MyOutputDebugStringA);
+            if (Flags() & MSG_FCE_GAME_MODES)
+                patch::RedirectJump(0xCCDA50, MyPrintfDUI);
             break;
         case ID_FIFA12_1000_RLD:
             OrigDirect3DCreate = patch::RedirectCall(0x80C912, OnDirect3DCreate);
@@ -251,11 +318,16 @@ public:
             OriginalWndProc = patch::GetUInt(0x51CF0C + 4);
             patch::SetPointer(0x51CF0C + 4, WndProc);
             gSportsRNAAddr = 0x19A9F70;
-            patch::SetPointer(0x163F410, MyPrintf);
-            patch::RedirectJump(0x4C3D30, MyPrintfDLC);
-            patch::RedirectJump(0x6AFBE0, MyPrintfUGC);
-            patch::SetPointer(0x163F1E0, MyOutputDebugStringA);
-            patch::RedirectJump(0x64E830, MyPrintfDUI);
+            if (Flags() & MSG_PRINTF)
+                patch::SetPointer(0x163F410, MyPrintf);
+            if (Flags() & MSG_DLC)
+                patch::RedirectJump(0x4C3D30, MyPrintfDLC);
+            if (Flags() & MSG_UGC)
+                patch::RedirectJump(0x6AFBE0, MyPrintfUGC);
+            if (Flags() & MSG_OUTPUT_DEBUG_STRING)
+                patch::SetPointer(0x163F1E0, MyOutputDebugStringA);
+            if (Flags() & MSG_FCE_GAME_MODES)
+                patch::RedirectJump(0x64E830, MyPrintfDUI);
             break;
         case ID_FIFA11_1010_RLD:
         case ID_FIFA11_1010:
@@ -266,9 +338,14 @@ public:
             OriginalWndProc = patch::GetUInt(0x8EA74A + 4);
             patch::SetPointer(0x8EA74A + 4, WndProc);
             gSportsRNAAddr = 0x1489760;
-            patch::SetPointer(0x114A280, MyPrintf);
-            patch::RedirectJump(0x4388C0, MyPrintfDLC);
-            patch::SetPointer(0x114A178, MyOutputDebugStringA);
+            if (Flags() & MSG_PRINTF)
+                patch::SetPointer(0x114A280, MyPrintf);
+            if (v.id() != ID_FIFA11_1010) {
+                if (Flags() & MSG_DLC)
+                    patch::RedirectJump(0x4388C0, MyPrintfDLC);
+            }
+            if (Flags() & MSG_OUTPUT_DEBUG_STRING)
+                patch::SetPointer(0x114A178, MyOutputDebugStringA);
             break;
         }
     }
