@@ -62,6 +62,11 @@ unsigned int &Flags() {
     return flags;
 }
 
+static CRITICAL_SECTION *cs() {
+    static CRITICAL_SECTION cs;
+    return &cs;
+}
+
 void CopyListToClipboard(const std::list<std::string> &strList) {
     if (strList.empty()) return;
     size_t totalSize = 0;
@@ -165,9 +170,11 @@ bool METHOD OnDirect3DRender(void *t, DUMMY_ARG, bool arg) {
 }
 
 void MyDebugPrint(std::string const &message) {
+    EnterCriticalSection(cs());
     while (DebugMessages.size() >= 1000)
         DebugMessages.pop_front();
     DebugMessages.push_back(message);
+    LeaveCriticalSection(cs());
 }
 
 void MyPrintf(char const *format, ...) {
@@ -216,7 +223,7 @@ void __stdcall MyOutputDebugStringA(LPCSTR lpOutputString) {
     MyDebugPrint(lpOutputString);
 }
 
-extern "C" __declspec(dllexport) void DebugPrint(std::string const &message) {
+extern "C" __declspec(dllexport) void DebugPrint(char const *message) {
     if (Flags() & MSG_USER)
         MyDebugPrint(message);
 }
@@ -226,8 +233,55 @@ public:
     FifaDebug() {
         if (!CheckPluginName(Magic<'F','i','f','a','D','e','b','u','g','.','a','s','i'>()))
             return;
+        if (exists(FIFA::GameDirPath(L"plugins\\imgui.asi"))) {
+            ::Error("This version of the plugin (FifaDebug) is incompatible with imgui plugin. Please upgrade the plugin.");
+            return;
+        }
+        InitializeCriticalSection(cs());
         auto v = FIFA::GetAppVersion();
         switch (v.id()) {
+        case ID_FIFA14_1700:
+            OrigDirect3DCreate = patch::RedirectCall(0x14D4250, OnDirect3DCreate);
+            patch::RedirectCall(0x14D42BB, OnDirect3DCreate);
+            OrigDirect3DDestroy = patch::RedirectCall(0x1CE3C76, OnDirect3DDestroy);
+            patch::RedirectCall(0x1CF519B, OnDirect3DDestroy);
+            OrigDirect3DReset = patch::RedirectCall(0x1CB9432, OnDirect3DReset);
+            patch::RedirectCall(0x1DC8B70, OnDirect3DReset);
+            Original3DRender = patch::SetPointer(0x3E392A8, OnDirect3DRender);
+            OriginalWndProc = patch::SetPointer(0x14DC28F + 3, WndProc);
+            gSportsRNAAddr = 0x4ACFEA0;
+            if (Flags() & MSG_PRINTF)
+                patch::SetPointer(0x3C2A6D4, MyPrintf);
+            if (Flags() & MSG_DLC)
+                patch::RedirectJump(0x5BCDB0, MyPrintfDLC);
+            if (Flags() & MSG_UGC)
+                patch::RedirectJump(0x1150D00, MyPrintfUGC);
+            if (Flags() & MSG_OUTPUT_DEBUG_STRING)
+                patch::SetPointer(0x3FF05CC, MyOutputDebugStringA);
+            if (Flags() & MSG_FCE_GAME_MODES)
+                patch::RedirectJump(0xED6780, MyPrintfDUI);
+            break;
+        case ID_FIFA14_1400_3DM:
+            OrigDirect3DCreate = patch::RedirectCall(0x14D1530, OnDirect3DCreate);
+            patch::RedirectCall(0x14D159B, OnDirect3DCreate);
+            OrigDirect3DDestroy = patch::RedirectCall(0x1CE0516, OnDirect3DDestroy);
+            patch::RedirectCall(0x1CF1A4B, OnDirect3DDestroy);
+            OrigDirect3DReset = patch::RedirectCall(0x1CB5D12, OnDirect3DReset);
+            patch::RedirectCall(0x1DC53C0, OnDirect3DReset);
+            Original3DRender = patch::SetPointer(0x3DE3FF8, OnDirect3DRender);
+            OriginalWndProc = patch::SetPointer(0x14E686F + 3, WndProc);
+            gSportsRNAAddr = 0x4A79DF0;
+            if (Flags() & MSG_PRINTF)
+                patch::SetPointer(0x3BD56D4, MyPrintf);
+            if (Flags() & MSG_DLC)
+                patch::RedirectJump(0x5BCEF0, MyPrintfDLC);
+            if (Flags() & MSG_UGC)
+                patch::RedirectJump(0x114E6C0, MyPrintfUGC);
+            if (Flags() & MSG_OUTPUT_DEBUG_STRING)
+                patch::SetPointer(0x3F9A5A4, MyOutputDebugStringA);
+            if (Flags() & MSG_FCE_GAME_MODES)
+                patch::RedirectJump(0xED4240, MyPrintfDUI);
+            break;
         case ID_FIFA13_1700_RLD:
             OrigDirect3DCreate = patch::RedirectCall(0x1292AD1, OnDirect3DCreate);
             OrigDirect3DDestroy = patch::RedirectCall(0x19FD006, OnDirect3DDestroy);
@@ -329,7 +383,7 @@ public:
             if (Flags() & MSG_FCE_GAME_MODES)
                 patch::RedirectJump(0x64E830, MyPrintfDUI);
             break;
-        case ID_FIFA11_1010_RLD:
+        case ID_FIFA11_1010_FLT:
         case ID_FIFA11_1010:
             OrigDirect3DCreate = patch::RedirectCall(0x83A549, OnDirect3DCreate);
             OrigDirect3DReset = patch::RedirectCall(0xEC21D0, OnDirect3DReset);
@@ -348,5 +402,9 @@ public:
                 patch::SetPointer(0x114A178, MyOutputDebugStringA);
             break;
         }
+    }
+
+    ~FifaDebug() {
+        DeleteCriticalSection(cs());
     }
 } fifaDebug;

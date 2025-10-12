@@ -31,7 +31,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetExt>.asi</TargetExt>
-    <OutDir>D:\Games\FIFA 13\Game\plugins\</OutDir>
+    <OutDir>D:\Games\FIFA 14\Game\plugins\</OutDir>
     <IncludePath>$(IncludePath)</IncludePath>
     <TargetName>FifaDebug</TargetName>
   </PropertyGroup>
@@ -58,9 +58,69 @@
     <PostBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent>
-      <Command>xcopy "$(TargetPath)" "D:\Games\FIFA 11\Game\plugins\" /Y /I
-xcopy "$(TargetPath)" "D:\Games\FIFA 12\Game\plugins\" /Y /I
-xcopy "$(TargetPath)" "D:\Games\FIFA 12 - UEFA EURO 2012\Game\plugins\" /Y /I</Command>
+      <Command>if exist "D:\Games\FIFA 13\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 13\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 12\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 12\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 12 - UEFA EURO 2012\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 12 - UEFA EURO 2012\plugins\" /Y /I
+)
+if exist "D:\Games\UEFA EURO 2012\" (
+    xcopy "$(TargetPath)" "D:\Games\UEFA EURO 2012\plugins\" /Y /I
+)
+if exist "D:\Games\EURO 2012\" (
+    xcopy "$(TargetPath)" "D:\Games\EURO 2012\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 11\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 11\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 10\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 10\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 09\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 09\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 08\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 08\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 07\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 07\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 06\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 06\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 2005\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 2005\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 2004\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 2004\plugins\" /Y /I
+)
+if exist "D:\Games\FIFA 2003\" (
+    xcopy "$(TargetPath)" "D:\Games\FIFA 2003\plugins\" /Y /I
+)
+if exist "D:\Games\WC 2006\" (
+    xcopy "$(TargetPath)" "D:\Games\WC 2006\plugins\" /Y /I
+)
+if exist "D:\Games\EURO 2008\" (
+    xcopy "$(TargetPath)" "D:\Games\EURO 2008\plugins\" /Y /I
+)
+if exist "D:\Games\EURO 2004\" (
+    xcopy "$(TargetPath)" "D:\Games\EURO 2004\plugins\" /Y /I
+)
+if exist "D:\Games\Champions League 2004-2005\" (
+    xcopy "$(TargetPath)" "D:\Games\Champions League 2004-2005\plugins\" /Y /I
+)
+if exist "D:\Games\CL 2004-2005\" (
+    xcopy "$(TargetPath)" "D:\Games\CL 2004-2005\plugins\" /Y /I
+)
+if exist "D:\Games\Champions League 2006-2007\" (
+    xcopy "$(TargetPath)" "D:\Games\Champions League 2006-2007\plugins\" /Y /I
+)
+if exist "D:\Games\CL 2006-2007\" (
+    xcopy "$(TargetPath)" "D:\Games\CL 2006-2007\plugins\" /Y /I
+)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
